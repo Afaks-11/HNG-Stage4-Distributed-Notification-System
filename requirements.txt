@@ -1,0 +1,22 @@
+# Django
+Django>=4.2,<5.0
+djangorestframework>=3.14.0
+django-cors-headers>=4.0.0
+
+# Database
+psycopg2-binary>=2.9.0
+
+# Environment variables
+python-decouple>=3.8
+
+# Redis (optional, for caching)
+django-redis>=5.2.0
+redis>=4.5.0
+
+# Email (included with Django, but can use additional backends)
+# django-ses for AWS SES
+# sendgrid-django for SendGrid
+
+# Development
+ipython>=8.0.0
+
