@@ -135,7 +135,7 @@ class PushProviderFactory:
     """Factory for creating push providers"""
     
     @staticmethod
-    def create_provider(provider_type: str = "mock") -> PushProvider:
+    def create_provider(provider_type: str = "onesignal") -> PushProvider:
         if provider_type == "onesignal":
             return OneSignalPushProvider()
         else:

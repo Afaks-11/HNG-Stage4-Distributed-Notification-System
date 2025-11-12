@@ -22,7 +22,11 @@ class Settings(BaseSettings):
     redis_db: int = 0
     
     # Push Provider Settings
-    push_provider: str = "mock"
+    push_provider: str = "onesignal"
+    
+    # OneSignal Settings
+    onesignal_app_id: Optional[str] = None
+    onesignal_api_key: Optional[str] = None
     
     # Database Settings
     database_url: str = "postgresql+asyncpg://postgres:password@localhost:5432/push_service"
