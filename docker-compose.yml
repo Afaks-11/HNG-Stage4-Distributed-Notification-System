@@ -1,6 +1,7 @@
+version: "3.9"
 
 services:
-  # team 2,3,4 update the docker-compose.yml also with your system requirement
+  # API Gateway
   api-gateway:
     build: ./api-gateway
     ports:
@@ -8,52 +9,74 @@ services:
     env_file:
       - ./api-gateway/.env
     depends_on:
-      postgres: 
+      postgres:
         condition: service_healthy
-      redis: 
+      redis:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
 
+  # RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: notification-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 35s
+      timeout: 10s
+      retries: 5
+    networks:
+      - notification-network
+
+  # Postgres
   postgres:
-    image: postgres:16
+    image: postgres:16-alpine
+    container_name: notification-postgres
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: team27
       POSTGRES_PASSWORD: team27
       POSTGRES_DB: notifications
-    ports:
-      - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U team27 -d notifications"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - notification-network
 
+  # Redis
   redis:
-    image: redis:7
+    image: redis:7-alpine
+    container_name: notification-redis
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  rabbitmq:
-    image: rabbitmq:3-management
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "status"]
-      interval: 20s
-      timeout: 8s
-      retries: 5
+    networks:
+      - notification-network
 
 volumes:
-  pgdata:
+  rabbitmq_data:
+  postgres_data:
+  redis_data:
+
+networks:
+  notification-network:
+    driver: bridge
