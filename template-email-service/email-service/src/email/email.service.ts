@@ -1,80 +1,76 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
-import { EmailProvider } from './email.provider';
-import { RedisService } from '../redis/redis.service';
-import { CircuitBreakerService } from '../common/circuit-breaker.service';
-import { StatusPublisherService } from '../status/status-publisher.service';
-import { TemplateHelper } from './helpers/template.helper';
+import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
+const nodemailer = require('nodemailer');
+
+interface EmailMessage {
+  user_id: string;
+  template_code: string;
+  variables: Record<string, any>;
+  request_id: string;
+  metadata?: Record<string, any>;
+}
 
 @Injectable()
-export class EmailService implements OnModuleInit {
+export class EmailService {
   private readonly logger = new Logger(EmailService.name);
+  private transporter: any;
 
-  constructor(
-    private readonly emailProvider: EmailProvider,
-    private readonly redisService: RedisService,
-    private readonly circuitBreakerService: CircuitBreakerService,
-    private readonly statusPublisher: StatusPublisherService,
-    private readonly templateHelper: TemplateHelper,
-  ) {}
-
-  onModuleInit() {
-    this.circuitBreakerService.createBreaker(
-      'template-service',
-      async (templateCode: string) => {
-        const url = `${process.env.TEMPLATE_SERVICE_URL || 'http://localhost:3001'}/api/v1/templates/by-code/${templateCode}`;
-        const response = await axios.get(url, { timeout: 5000 });
-        return response.data;
-      },
-      { timeout: 5000, resetTimeout: 30000 }
-    );
-
-    this.circuitBreakerService.createBreaker(
-      'smtp',
-      async (mailOptions: any) => {
-        return await this.emailProvider.sendEmail(mailOptions);
-      },
-      { timeout: 15000, resetTimeout: 60000 }
-    );
+  constructor() {
+    this.initializeTransporter();
   }
 
-  async processEmail(data: any) {
-    const { message_id, template_code, recipient, subject, variables } = data;
+  private initializeTransporter() {
+    this.transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
 
-    if (await this.redisService.isDuplicate(message_id)) {
-      this.logger.warn(`⚠️  Duplicate message detected: ${message_id}`);
-      return;
-    }
+    this.logger.log('📧 Email transporter initialized');
+  }
 
-    await this.statusPublisher.publishStatus(message_id, 'processing');
-
+  async sendEmail(message: EmailMessage): Promise<void> {
     try {
-      let template = await this.redisService.getCachedTemplate(template_code);
+      // Step 1: Fetch template from Template Service
+      const templateUrl = `${process.env.TEMPLATE_SERVICE_URL || 'http://localhost:3001'}/api/v1/templates/by-code/${message.template_code}`;
       
-      if (!template) {
-        const templateBreaker = this.circuitBreakerService.getBreaker('template-service');
-        const result = await templateBreaker.fire(template_code);
-        template = result.data;
-        await this.redisService.cacheTemplate(template_code, template);
+      this.logger.log(`📥 Fetching template: ${message.template_code}`);
+      const templateResponse = await axios.get(templateUrl);
+      const template = templateResponse.data.data;
+
+      // Step 2: Render template with variables
+      const subject = this.renderTemplate(template.subject, message.variables);
+      const body = this.renderTemplate(template.body, message.variables);
+
+      // Step 3: Get recipient email (from variables or metadata)
+      const recipientEmail = message.variables.email || message.metadata?.email;
+      
+      if (!recipientEmail) {
+        throw new Error('Recipient email not provided in variables or metadata');
       }
 
-      const renderedBody = this.templateHelper.render(template.body, variables);
-      const renderedSubject = subject || this.templateHelper.render(template.subject, variables);
+      // Step 4: Send email via SMTP
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: recipientEmail,
+        subject: subject,
+        html: body,
+      };
 
-      const smtpBreaker = this.circuitBreakerService.getBreaker('smtp');
-      await smtpBreaker.fire({
-        to: recipient,
-        subject: renderedSubject,
-        html: renderedBody,
-      });
+      await this.transporter.sendMail(mailOptions);
+      this.logger.log(`✅ Email sent to ${recipientEmail} (request: ${message.request_id})`);
 
-      await this.redisService.markAsProcessed(message_id);
-      await this.statusPublisher.publishStatus(message_id, 'sent');
-      
-      this.logger.log(`✅ Email sent successfully to ${recipient}`);
     } catch (error) {
-      await this.statusPublisher.publishStatus(message_id, 'failed', { error: error.message });
+      this.logger.error(`❌ Failed to send email:`, error.message);
       throw error;
     }
+  }
+
+  private renderTemplate(template: string, variables: Record<string, any>): string {
+    return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+      return variables[key] !== undefined ? String(variables[key]) : match;
+    });
   }
 }

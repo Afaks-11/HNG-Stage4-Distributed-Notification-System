@@ -1,40 +1,86 @@
-import { Controller, Logger } from '@nestjs/common';
-import { MessagePattern, Ctx, Payload, RmqContext } from '@nestjs/microservices';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { EmailService } from './email.service';
+import amqp from 'amqplib';
 
-@Controller()
-export class EmailConsumer {
+interface EmailMessage {
+  notification_type: 'email';
+  user_id: string;
+  template_code: string;
+  variables: Record<string, any>;
+  request_id: string;
+  priority?: number;
+  metadata?: Record<string, any>;
+}
+
+@Injectable()
+export class EmailConsumer implements OnModuleInit {
   private readonly logger = new Logger(EmailConsumer.name);
-  private readonly MAX_RETRIES = 3;
+  private connection: amqp.Connection;
+  private channel: amqp.Channel;
 
   constructor(private readonly emailService: EmailService) {}
 
-  @MessagePattern('email.queue')
-  async handleEmailMessage(@Payload() data: any, @Ctx() context: RmqContext) {
-    const channel = context.getChannelRef();
-    const originalMsg = context.getMessage();
-    
-    const retryCount = (originalMsg.properties.headers['x-retry-count'] || 0);
-    
-    this.logger.log(`📧 Processing email message (attempt ${retryCount + 1})`);
+  async onModuleInit() {
+    await this.connectToRabbitMQ();
+  }
 
+  private async connectToRabbitMQ() {
     try {
-      await this.emailService.processEmail(data);
-      channel.ack(originalMsg);
-      this.logger.log('✅ Email processed successfully');
-    } catch (error) {
-      this.logger.error('❌ Email processing failed:', error.message);
+      const rabbitmqUrl = process.env.RABBITMQ_URL || 'amqp://admin:admin123@localhost:5672';
+      
+      this.connection = await amqp.connect(rabbitmqUrl);
+      this.channel = await this.connection.createChannel();
 
-      if (retryCount < this.MAX_RETRIES) {
-        const delay = Math.pow(2, retryCount) * 1000;
-        this.logger.log(`🔄 Scheduling retry in ${delay}ms`);
-        
-        setTimeout(() => {
-          channel.nack(originalMsg, false, true);
-        }, delay);
+      await this.channel.assertQueue('email.queue', { durable: true });
+      await this.channel.prefetch(1); // Process one message at a time
+
+      this.logger.log('📬 Connected to RabbitMQ, listening for email messages...');
+
+      this.channel.consume('email.queue', async (msg) => {
+        if (msg) {
+          await this.handleMessage(msg);
+        }
+      });
+
+      this.connection.on('error', (err) => {
+        this.logger.error('RabbitMQ connection error:', err);
+      });
+
+      this.connection.on('close', () => {
+        this.logger.warn('RabbitMQ connection closed, reconnecting...');
+        setTimeout(() => this.connectToRabbitMQ(), 5000);
+      });
+
+    } catch (error) {
+      this.logger.error('Failed to connect to RabbitMQ:', error);
+      setTimeout(() => this.connectToRabbitMQ(), 5000);
+    }
+  }
+
+  private async handleMessage(msg: amqp.Message) {
+    try {
+      const message: EmailMessage = JSON.parse(msg.content.toString());
+      this.logger.log(`📨 Processing email for user ${message.user_id}, template: ${message.template_code}`);
+
+      // Send email
+      await this.emailService.sendEmail(message);
+
+      // Acknowledge message
+      this.channel.ack(msg);
+      this.logger.log(`✅ Email sent successfully for request ${message.request_id}`);
+
+    } catch (error) {
+      this.logger.error(`❌ Error processing message:`, error);
+      
+      // Reject and requeue message (up to 3 retries)
+      const retryCount = (msg.properties.headers['x-retry-count'] || 0) + 1;
+      
+      if (retryCount < 3) {
+        this.logger.warn(`🔄 Retrying message (attempt ${retryCount}/3)`);
+        this.channel.nack(msg, false, true);
       } else {
-        this.logger.error('💀 Max retries exceeded, sending to DLQ');
-        channel.nack(originalMsg, false, false);
+        this.logger.error(`💀 Message failed after 3 attempts, sending to DLQ`);
+        this.channel.nack(msg, false, false); // Don't requeue
       }
     }
   }

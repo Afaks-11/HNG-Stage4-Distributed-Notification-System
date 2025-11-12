@@ -1,30 +1,24 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity('templates')
 export class Template {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 100, unique: true })
-  code: string;
+  @Column({ unique: true })
+  code: string; // e.g., 'welcome_email', 'reset_password'
 
-  @Column({ type: 'varchar', length: 255 })
-  name: string;
+  @Column()
+  name: string; // Human-readable name
 
-  @Column({ type: 'text' })
-  subject: string;
+  @Column()
+  subject: string; // Email subject with {{variables}}
 
-  @Column({ type: 'text' })
-  body: string;
+  @Column('text')
+  body: string; // Email body HTML with {{variables}}
 
-  @Column({ type: 'varchar', length: 10, default: 'en' })
-  language: string;
-
-  @Column({ type: 'int', default: 1 })
-  version: number;
-
-  @Column({ type: 'boolean', default: true })
-  is_active: boolean;
+  @Column({ default: true })
+  is_active: boolean; // Can be disabled without deleting
 
   @CreateDateColumn()
   created_at: Date;

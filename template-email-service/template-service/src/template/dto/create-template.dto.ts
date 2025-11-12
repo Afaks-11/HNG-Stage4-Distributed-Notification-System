@@ -1,26 +1,23 @@
-import { IsString, IsNotEmpty, IsOptional, Length } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
 
 export class CreateTemplateDto {
   @IsString()
   @IsNotEmpty()
-  @Length(1, 100)
-  code: string;
+  code: string; // Unique template code (e.g., 'welcome_email')
 
   @IsString()
   @IsNotEmpty()
-  @Length(1, 255)
-  name: string;
+  name: string; // Human-readable name
 
   @IsString()
   @IsNotEmpty()
-  subject: string;
+  subject: string; // Email subject with {{variables}}
 
   @IsString()
   @IsNotEmpty()
-  body: string;
+  body: string; // HTML body with {{variables}}
 
-  @IsString()
+  @IsBoolean()
   @IsOptional()
-  @Length(2, 10)
-  language?: string;
+  is_active?: boolean; // Default: true
 }
