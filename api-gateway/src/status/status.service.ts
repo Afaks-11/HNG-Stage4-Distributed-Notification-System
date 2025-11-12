@@ -8,8 +8,17 @@ import { NotificationStatus } from './entities/notification_status.entity';
 export class StatusService {
   constructor(
     @InjectRepository(Notification) private notifRepo: Repository<Notification>,
-    @InjectRepository(NotificationStatus) private statusRepo: Repository<NotificationStatus>,
+    @InjectRepository(NotificationStatus)
+    private statusRepo: Repository<NotificationStatus>,
   ) {}
+
+  async get_latest_notification(notificationId: string) {
+    return await this.notifRepo.find({
+      where: { id: notificationId }, // use id, not notification_id
+      order: { created_at: 'DESC' },
+      take: 1,
+    });
+  }
 
   async create_pending(notification: Notification) {
     await this.notifRepo.save(notification);
@@ -21,7 +30,11 @@ export class StatusService {
     });
   }
 
-  async add_status(notification_id: string, status: 'delivered' | 'failed', error?: string) {
+  async add_status(
+    notification_id: string,
+    status: 'delivered' | 'failed',
+    error?: string,
+  ) {
     await this.statusRepo.save({
       notification_id,
       status,
@@ -31,7 +44,11 @@ export class StatusService {
     });
   }
 
-  async get_latest_status(notification_id: string) {
-    return this.statusRepo.find({ where: { notification_id }, order: { id: 'DESC' }, take: 1 });
+  async get_latest_status(notificationId: string) {
+    return this.statusRepo.find({
+      where: { notification_id: notificationId },
+      order: { timestamp: 'DESC' },
+      take: 1,
+    });
   }
 }
