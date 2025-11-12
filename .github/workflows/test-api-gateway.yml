@@ -1,0 +1,62 @@
+name: Test api-gateway
+
+on: 
+  push: 
+    branches: [main, Hamman/api-gateway]
+  pull_request: 
+    branches: [main]
+
+
+jobs: 
+  build-and-test: 
+    runs-on:  ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: team27
+          POSTGRES_PASSWORD: team27
+          POSTGRES_DB: notifications
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      rabbitmq:
+        image: rabbitmq:3-management
+        ports:
+          - 5672:5672
+          - 15672:15672
+      redis:
+        image: redis:7
+        ports:
+        - 6379:6379
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm ci
+      - name: Build project
+        run: npm run build
+      - name: Run tests
+        run: npm run test -- --runInBand
+
+deploy:
+  needs: build-and-test
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v3
+    - name: Deploy via SSH
+      uses: appleboy/ssh-action@v0.1.10
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        script: |
+          cd ~/notification-system
+          git pull origin main
+          docker compose up -d --build
