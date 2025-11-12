@@ -1,0 +1,66 @@
+services:
+  push-service:
+    build: .
+    ports:
+      - "8003:8003"
+      - "8004:8004"  # Metrics port
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@postgres:5432/push_service
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - REDIS_URL=redis://redis:6379
+      - DEBUG=true
+      - USER_SERVICE_URL=http://user-service:8001
+      - TEMPLATE_SERVICE_URL=http://template-service:8002
+      - JWT_SECRET_KEY=dev-secret-key
+      - API_KEY=dev-api-key
+    depends_on:
+      - postgres
+      - rabbitmq
+      - redis
+    volumes:
+      - ./firebase-credentials.json:/app/firebase-credentials.json:ro
+    networks:
+      - notification-network
+
+  postgres:
+    image: postgres:13-alpine
+    environment:
+      - POSTGRES_DB=push_service
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    networks:
+      - notification-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"  # Management UI
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - notification-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - notification-network
+
+volumes:
+  rabbitmq_data:
+  redis_data:
+
+networks:
+  notification-network:
+    driver: bridge
