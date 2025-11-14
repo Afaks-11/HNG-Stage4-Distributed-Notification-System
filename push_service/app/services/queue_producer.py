@@ -3,11 +3,11 @@ import uuid
 from typing import Dict, Any, Optional
 import aio_pika
 from aio_pika import Message
-import structlog
+import logging
 
 from app.core.config import settings
 
-logger = structlog.get_logger()
+logger = logging.getLogger(__name__)
 
 
 class QueueProducer:
@@ -24,7 +24,7 @@ class QueueProducer:
             self.channel = await self.connection.channel()
             logger.info("Producer connected to RabbitMQ")
         except Exception as e:
-            logger.error("Failed to connect producer to RabbitMQ", error=str(e))
+            logger.error(f"Failed to connect producer to RabbitMQ: {str(e)}")
             raise
     
     async def send_status_update(
@@ -64,19 +64,10 @@ class QueueProducer:
                 routing_key="notification.status.queue"
             )
             
-            logger.info(
-                "Status update sent",
-                notification_id=notification_id,
-                status=status,
-                correlation_id=correlation_id
-            )
+            logger.info(f"Status update sent for {notification_id}: {status}")
             
         except Exception as e:
-            logger.error(
-                "Failed to send status update",
-                notification_id=notification_id,
-                error=str(e)
-            )
+            logger.error(f"Failed to send status update for {notification_id}: {str(e)}")
     
     async def send_to_failed_queue(
         self,
@@ -113,17 +104,10 @@ class QueueProducer:
                 routing_key=settings.failed_queue_name
             )
             
-            logger.info(
-                "Message sent to failed queue",
-                correlation_id=correlation_id,
-                error=error
-            )
+            logger.info(f"Message sent to failed queue: {error}")
             
         except Exception as e:
-            logger.error(
-                "Failed to send to failed queue",
-                error=str(e)
-            )
+            logger.error(f"Failed to send to failed queue: {str(e)}")
     
     async def close(self):
         """Close RabbitMQ connection"""

@@ -1,6 +1,0 @@
-notification_type,template_code,name,link,request_id,priority
-email,welcome_v1,User1,https://example.com/1,req_1,5
-email,welcome_v1,User2,https://example.com/2,req_2,5
-email,welcome_v1,User3,https://example.com/3,req_3,5
-...
-email,welcome_v1,User100,https://example.com/100,req_100,5

@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from tenacity import retry, stop_after_attempt, wait_exponential
-import structlog
+import logging
 
 from app.models.notification import (
     PushNotification, 
@@ -16,10 +16,9 @@ from app.models.notification import (
 from app.services.push_provider import PushProviderFactory, PushProvider
 from app.services.queue_producer import QueueProducer
 from app.utils.circuit_breaker import CircuitBreaker
-from app.utils.logger import log_notification_event
 from app.core.config import settings
 
-logger = structlog.get_logger()
+logger = logging.getLogger(__name__)
 
 
 class PushNotificationService:
@@ -51,13 +50,7 @@ class PushNotificationService:
                 device_token
             )
             
-            log_notification_event(
-                logger,
-                "notification_created",
-                notification_id,
-                correlation_id,
-                user_id=notification_request.user_id
-            )
+            logger.info(f"Notification created: {notification_id} for user {notification_request.user_id}")
             
             # Process notification data
             notification_data = await self._prepare_notification_data(
@@ -88,13 +81,7 @@ class PushNotificationService:
                 correlation_id
             )
             
-            log_notification_event(
-                logger,
-                "notification_processed",
-                notification_id,
-                correlation_id,
-                success=result["success"]
-            )
+            logger.info(f"Notification processed: {notification_id}, success: {result['success']}")
             
             return {
                 "notification_id": notification_id,
@@ -104,12 +91,7 @@ class PushNotificationService:
             }
             
         except Exception as e:
-            logger.error(
-                "Notification processing failed",
-                notification_id=notification_id,
-                correlation_id=correlation_id,
-                error=str(e)
-            )
+            logger.error(f"Notification processing failed: {notification_id}, error: {str(e)}")
             
             await self._update_notification_status(
                 notification_id,

@@ -6,40 +6,55 @@ export interface PaginationMeta {
   has_next: boolean;
   has_previous: boolean;
 }
-export interface ApiResponse<T = unknown> {
+
+export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
   error?: string;
   message: string;
-  meta: PaginationMeta;
+  meta?: PaginationMeta;
 }
-export function ok<T>(data: T, message = 'ok'): ApiResponse<T> {
-  return {
-    success: true,
-    data,
+
+export function createResponse<T>(
+  success: boolean,
+  message: string,
+  data?: T,
+  error?: string,
+  meta?: PaginationMeta
+): ApiResponse<T> {
+  const response: ApiResponse<T> = {
+    success,
     message,
-    meta: {
-      total: 1,
-      limit: 1,
-      page: 1,
-      total_pages: 1,
-      has_next: false,
-      has_previous: false,
-    },
   };
+
+  if (data !== undefined) {
+    response.data = data;
+  }
+
+  if (error) {
+    response.error = error;
+  }
+
+  if (meta) {
+    response.meta = meta;
+  }
+
+  return response;
 }
-export function fail(error: string, message = 'error'): ApiResponse {
+
+export function createPaginationMeta(
+  total: number,
+  limit: number,
+  page: number
+): PaginationMeta {
+  const total_pages = Math.ceil(total / limit);
+  
   return {
-    success: false,
-    error,
-    message,
-    meta: {
-      total: 0,
-      limit: 1,
-      page: 1,
-      total_pages: 0,
-      has_next: false,
-      has_previous: false,
-    },
+    total,
+    limit,
+    page,
+    total_pages,
+    has_next: page < total_pages,
+    has_previous: page > 1,
   };
 }

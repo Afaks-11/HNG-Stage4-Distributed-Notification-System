@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, Any
-import structlog
+import logging
 
 from app.core.database import AsyncSessionLocal
 from app.services.push_service import PushNotificationService
@@ -11,7 +11,7 @@ from app.models.notification import (
     NotificationStatusUpdate
 )
 
-logger = structlog.get_logger()
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/push", tags=["push"])
 
 
@@ -50,7 +50,7 @@ async def send_push_notification(
             )
             
         except Exception as e:
-            logger.error("Push notification send failed", error=str(e))
+            logger.error(f"Push notification send failed: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=str(e)
@@ -83,7 +83,7 @@ async def get_notification_status(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Status retrieval failed", error=str(e))
+        logger.error(f"Status retrieval failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
@@ -112,7 +112,7 @@ async def update_notification_status(
         }
         
     except Exception as e:
-        logger.error("Status update failed", error=str(e))
+        logger.error(f"Status update failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)

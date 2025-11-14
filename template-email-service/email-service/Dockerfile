@@ -1,4 +1,5 @@
-FROM node:20-alpine
+# Multi-stage build for Email Service
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -17,8 +18,25 @@ COPY . .
 # Build the application
 RUN pnpm run build
 
+# Production stage
+FROM node:20-alpine AS production
+
+WORKDIR /app
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Copy package files
+COPY package.json ./
+
+# Install only production dependencies
+RUN pnpm install --prod
+
+# Copy built application from builder stage
+COPY --from=builder /app/dist ./dist
+
 # Expose port
 EXPOSE 3002
 
 # Start the application
-CMD ["pnpm", "run", "start:prod"]
+CMD ["node", "dist/main"]

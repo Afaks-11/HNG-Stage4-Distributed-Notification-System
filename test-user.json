@@ -1,0 +1,11 @@
+{
+  "name": "John Doe",
+  "email": "john.doe@example.com",
+  "password": "SecurePassword123!",
+  "push_token": "device_token_12345",
+  "preferences": {
+    "email_notifications": true,
+    "push_notifications": true,
+    "sms_notifications": false
+  }
+}

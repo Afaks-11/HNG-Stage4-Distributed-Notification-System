@@ -45,9 +45,6 @@ async def health_check() -> Dict[str, Any]:
         health_status["status"] = "unhealthy"
     
     # Check push providers
-    health_status["checks"]["firebase"] = (
-        "configured" if settings.firebase_credentials_path else "not configured"
-    )
     health_status["checks"]["onesignal"] = (
         "configured" if settings.onesignal_app_id and settings.onesignal_api_key 
         else "not configured"

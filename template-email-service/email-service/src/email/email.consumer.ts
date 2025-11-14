@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { EmailService } from './email.service';
-import amqp from 'amqplib';
+import * as amqp from 'amqplib';
 
 interface EmailMessage {
   notification_type: 'email';
@@ -15,8 +15,8 @@ interface EmailMessage {
 @Injectable()
 export class EmailConsumer implements OnModuleInit {
   private readonly logger = new Logger(EmailConsumer.name);
-  private connection: amqp.Connection;
-  private channel: amqp.Channel;
+  private connection: any;
+  private channel: any;
 
   constructor(private readonly emailService: EmailService) {}
 
@@ -28,8 +28,8 @@ export class EmailConsumer implements OnModuleInit {
     try {
       const rabbitmqUrl = process.env.RABBITMQ_URL || 'amqp://admin:admin123@localhost:5672';
       
-      this.connection = await amqp.connect(rabbitmqUrl);
-      this.channel = await this.connection.createChannel();
+      this.connection = await amqp.connect(rabbitmqUrl) as any;
+      this.channel = await (this.connection as any).createChannel();
 
       await this.channel.assertQueue('email.queue', { durable: true });
       await this.channel.prefetch(1); // Process one message at a time

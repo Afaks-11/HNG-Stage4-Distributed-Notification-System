@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 import httpx
-import structlog
+import logging
 from app.models.notification import PushNotificationData
 from app.core.config import settings
 
-logger = structlog.get_logger()
+logger = logging.getLogger(__name__)
 
 
 class PushProvider(ABC):
@@ -31,12 +31,7 @@ class MockPushProvider(PushProvider):
         correlation_id: str = None
     ) -> Dict[str, Any]:
         
-        logger.info(
-            "Mock notification sent",
-            correlation_id=correlation_id,
-            device_token=device_token,
-            title=notification_data.title
-        )
+        logger.info(f"Mock notification sent to {device_token}: {notification_data.title}")
         
         return {
             "success": True,
@@ -96,22 +91,14 @@ class OneSignalPushProvider(PushProvider):
                 result = response.json()
                 
                 if response.status_code == 200 and result.get("id"):
-                    logger.info(
-                        "OneSignal notification sent",
-                        correlation_id=correlation_id,
-                        notification_id=result["id"]
-                    )
+                    logger.info(f"OneSignal notification sent: {result['id']}")
                     return {
                         "success": True,
                         "provider": "onesignal",
                         "message_id": result["id"]
                     }
                 else:
-                    logger.error(
-                        "OneSignal notification failed",
-                        correlation_id=correlation_id,
-                        response=result
-                    )
+                    logger.error(f"OneSignal notification failed: {result}")
                     return {
                         "success": False,
                         "provider": "onesignal",
@@ -119,11 +106,7 @@ class OneSignalPushProvider(PushProvider):
                     }
                     
         except Exception as e:
-            logger.error(
-                "OneSignal notification failed",
-                correlation_id=correlation_id,
-                error=str(e)
-            )
+            logger.error(f"OneSignal notification failed: {str(e)}")
             return {
                 "success": False,
                 "provider": "onesignal",

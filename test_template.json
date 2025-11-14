@@ -1,0 +1,1 @@
+{"code":"welcome_email","name":"Welcome Email","subject":"Welcome {{name}}!","body":"Hello {{name}}, Welcome to our platform!"}

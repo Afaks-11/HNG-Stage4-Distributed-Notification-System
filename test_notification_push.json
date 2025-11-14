@@ -1,0 +1,1 @@
+{"user_id":"user-123","notification_type":"push","template_code":"welcome_email","variables":{"name":"John Doe","email":"john.doe@example.com"}}

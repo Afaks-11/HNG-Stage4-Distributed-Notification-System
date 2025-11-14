@@ -1,24 +1,36 @@
-
+# Multi-stage build for API Gateway
 FROM node:20-alpine AS builder
+
 WORKDIR /app
 
+# Copy package files
 COPY package*.json tsconfig*.json ./
-RUN npm install
 
-COPY src ./src
+# Install dependencies
+RUN npm install --legacy-peer-deps
+
+# Copy source code
+COPY . .
+
+# Build the application
 RUN npm run build
 
 # Production stage
-FROM node:20-alpine
+FROM node:20-alpine AS production
+
 WORKDIR /app
 
+# Copy package files
 COPY package*.json ./
-RUN npm ci --only=production
 
+# Install only production dependencies
+RUN npm install --only=production --legacy-peer-deps
+
+# Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
 
-ENV NODE_ENV=production
-
+# Expose port
 EXPOSE 8080
 
-CMD ["node", "dist/main.js"]
+# Start the application
+CMD ["node", "dist/main"]
